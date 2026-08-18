@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Search Results{% endblock %}
+
+{% block content %}
+<div class="search-results-page">
+    <div class="search-summary">
+        <h3><i class="bx bx-search"></i> Search results for: "<strong>{{ query }}</strong>"</h3>
+        <p class="text-muted">
+            {{ results.orders|length }} order{{ 's' if results.orders|length != 1 }},
+            {{ results.inventory|length }} product{{ 's' if results.inventory|length != 1 }},
+            {{ results.exceptions|length }} exception{{ 's' if results.exceptions|length != 1 }}
+        </p>
+    </div>
+
+    {% if results.orders %}
+    <section class="dashboard-panel" style="margin-top:20px;">
+        <div class="panel-header">
+            <h3><i class="bx bx-transfer-alt"></i> Orders</h3>
+            <span class="badge badge-info">{{ results.orders|length }}</span>
+        </div>
+        <div class="panel-body">
+            <div class="responsive-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Order</th><th>Customer</th><th>Priority</th><th>Status</th><th>Risk</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for o in results.orders %}
+                    <tr>
+                        <td><strong>{{ o.order_number }}</strong></td>
+                        <td>{{ o.customer_name }}</td>
+                        <td><span class="badge-priority badge-priority-{{ o.priority_level|lower }}">{{ o.priority_level }}</span></td>
+                        <td><span class="badge-status badge-status-{{ o.status|lower }}">{{ o.status }}</span></td>
+                        <td><span class="badge-risk badge-risk-{{ o.risk_badge|lower|replace(' ', '-') }}">{{ o.risk_badge }}</span></td>
+                        <td><a href="/orders/{{ o.order_number }}" class="btn btn-sm btn-secondary"><i class="bx bx-link-external"></i> View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if results.inventory %}
+    <section class="dashboard-panel" style="margin-top:20px;">
+        <div class="panel-header">
+            <h3><i class="bx bxs-package"></i> Inventory</h3>
+            <span class="badge badge-info">{{ results.inventory|length }}</span>
+        </div>
+        <div class="panel-body">
+            <div class="responsive-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>SKU</th><th>Product</th><th>Category</th><th>Available</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for i in results.inventory %}
+                    <tr>
+                        <td><strong>{{ i.sku }}</strong></td>
+                        <td>{{ i.name }}</td>
+                        <td class="col-category">{{ i.category }}</td>
+                        <td class="font-mono">{{ i.available_quantity }}</td>
+                        <td><span class="{{ i.status_badge }}">{{ i.status }}</span></td>
+                        <td><a href="/inventory/{{ i.sku }}" class="btn btn-sm btn-secondary"><i class="bx bx-link-external"></i> View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if results.exceptions %}
+    <section class="dashboard-panel" style="margin-top:20px;">
+        <div class="panel-header">
+            <h3><i class="bx bx-error-alt"></i> Exceptions</h3>
+            <span class="badge badge-info">{{ results.exceptions|length }}</span>
+        </div>
+        <div class="panel-body">
+            <div class="responsive-table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>ID</th><th>Type</th><th>Severity</th><th>Order</th><th>Status</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for e in results.exceptions %}
+                    <tr>
+                        <td><strong>{{ e.exception_id }}</strong></td>
+                        <td>{{ e.exception_type | replace('_', ' ') }}</td>
+                        <td><span class="badge-priority badge-priority-{{ e.severity|lower }}">{{ e.severity }}</span></td>
+                        <td>{{ e.order_number or '—' }}</td>
+                        <td><span class="badge-status badge-status-{{ e.status|lower }}">{{ e.status }}</span></td>
+                        <td><a href="/exceptions" class="btn btn-sm btn-secondary"><i class="bx bx-link-external"></i> View</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if not results.orders and not results.inventory and not results.exceptions %}
+    <div class="empty-state" style="margin-top:40px;">
+        <i class="bx bx-search-alt" style="font-size:48px; color:var(--text-muted);"></i>
+        <h4>No results found</h4>
+        <p class="text-muted">Try a different search term — order IDs, customer names, SKUs, or exception IDs.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

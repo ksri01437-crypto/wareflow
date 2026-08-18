@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Orders{% endblock %}
+{% block header_subtitle %}Order queue, priority decisions, and operational risk{% endblock %}
+
+{% block content %}
+<div class="orders-container">
+    <!-- Filter and Search Operations Bar -->
+    <div class="operations-bar">
+        <div class="search-box-container">
+            <i class="bx bx-search search-icon"></i>
+            <input type="text" id="order-search" placeholder="Search by Order ID or Customer..." onkeyup="filterOrdersTable()">
+        </div>
+        
+        <div class="filters-container">
+            <!-- Filter: Priority -->
+            <div class="filter-group">
+                <label for="filter-priority">Priority</label>
+                <select id="filter-priority" onchange="filterOrdersTable()">
+                    <option value="ALL">All Priorities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+            </div>
+
+            <!-- Filter: Status -->
+            <div class="filter-group">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" onchange="filterOrdersTable()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="NEW">New</option>
+                    <option value="ALLOCATED">Allocated</option>
+                    <option value="PICKING">Picking</option>
+                    <option value="PACKING">Packing</option>
+                    <option value="QC">QC</option>
+                    <option value="READY_TO_DISPATCH">Ready to Dispatch</option>
+                    <option value="DISPATCHED">Dispatched</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="PARTIALLY_FULFILLED">Partially Fulfilled</option>
+                </select>
+            </div>
+
+            <!-- Filter: Risk -->
+            <div class="filter-group">
+                <label for="filter-risk">Risk</label>
+                <select id="filter-risk" onchange="filterOrdersTable()">
+                    <option value="ALL">All Risks</option>
+                    <option value="AT RISK">At Risk</option>
+                    <option value="WARNING">Warning</option>
+                    <option value="ON TRACK">On Track</option>
+                </select>
+            </div>
+
+            <!-- Sort option -->
+            <div class="filter-group">
+                <label for="sort-by">Sort By</label>
+                <select id="sort-by" onchange="sortOrdersTable()">
+                    <option value="priority-first">Priority First</option>
+                    <option value="score-desc">Priority Score (Highest)</option>
+                    <option value="score-asc">Priority Score (Lowest)</option>
+                    <option value="value-desc">Order Value (Highest)</option>
+                    <option value="value-asc">Order Value (Lowest)</option>
+                    <option value="created-desc">Created Time (Newest)</option>
+                    <option value="created-asc">Created Time (Oldest)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table Panel -->
+    <div class="dashboard-panel">
+        <div class="panel-header">
+            <h3><i class="bx bx-list-ol"></i> Order Registry ({{ orders|length }} Orders Loaded)</h3>
+            <div class="registry-actions">
+                <span class="results-count" id="results-count">{{ orders|length }} orders matching</span>
+            </div>
+        </div>
+        <div class="panel-body no-padding table-responsive">
+            <table class="orders-table" id="orders-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Created</th>
+                        <th>Items Summary</th>
+                        <th class="text-right">Order Value</th>
+                        <th class="text-center">Priority</th>
+                        <th class="text-center">Score</th>
+                        <th class="text-center">Risk</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbody">
+                    {% for order in orders %}
+                    <!-- Keep parsed variables as data attributes for easy JS client-side filtering and sorting -->
+                    <tr class="order-row" 
+                        data-order-id="{{ order.order_number }}"
+                        data-customer="{{ order.customer_name }}"
+                        data-priority="{{ order.priority_level }}"
+                        data-score="{{ order.score }}"
+                        data-risk="{{ order.risk_badge }}"
+                        data-status="{{ order.status }}"
+                        data-value="{{ order.total_value }}"
+                        data-created="{{ order.created_at }}">
+                        
+                        <td class="col-order-id">
+                            <a href="/orders/{{ order.order_number }}" class="order-link-title">
+                                <strong>{{ order.order_number }}</strong>
+                            </a>
+                        </td>
+                        
+                        <td class="col-customer">
+                            {{ order.customer_name }}
+                            {% if order.customer_priority == 'HIGH' %}
+                                <span class="customer-vip-badge">VIP</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="col-created text-small">
+                            {{ order.created_formatted }}
+                        </td>
+                        
+                        <td class="col-items text-small truncate">
+                            {{ order.items_summary }}
+                        </td>
+                        
+                        <td class="col-value text-right font-mono">
+                            ₹{{ "{:,.2f}".format(order.total_value) }}
+                        </td>
+                        
+                        <td class="col-priority text-center">
+                            <span class="badge-priority badge-priority-{{ order.priority_level|lower }}">
+                                {{ order.priority_level }}
+                            </span>
+                        </td>
+                        
+                        <td class="col-score text-center font-mono font-bold">
+                            {{ order.score }}
+                        </td>
+                        
+                        <td class="col-risk text-center">
+                            <span class="badge-risk badge-risk-{{ order.risk_badge|lower|replace(' ', '-') }}">
+                                {{ order.risk_badge }}
+                            </span>
+                        </td>
+                        
+                        <td class="col-status text-center">
+                            <span class="badge-status badge-status-{{ order.status|lower }}">
+                                {{ order.status.replace('_', ' ') }}
+                            </span>
+                        </td>
+                        
+                        <td class="col-action text-center">
+                            <a href="/orders/{{ order.order_number }}" class="btn-table-action">
+                                <i class="bx bx-show-alt"></i> Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="no-matching-rows" style="display: none;">
+                        <td colspan="10" class="table-no-data">
+                            <i class="bx bx-search-alt text-muted large-icon"></i>
+                            <p>No orders match the selected filters.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

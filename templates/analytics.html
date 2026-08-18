@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Analytics{% endblock %}
+{% block header_subtitle %}Operational performance, bottlenecks, and fulfillment metrics{% endblock %}
+
+{% block content %}
+<!-- Analytics KPIs -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon icon-blue"><i class="bx bx-shopping-bag"></i></div>
+        <div class="kpi-info">
+            <h3>Total Orders</h3>
+            <p class="kpi-value">{{ total_orders }}</p>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-check-double"></i></div>
+        <div class="kpi-info">
+            <h3>Fulfillment Rate</h3>
+            <p class="kpi-value">{{ fulfillment_rate }}%</p>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-purple"><i class="bx bx-check-shield"></i></div>
+        <div class="kpi-info">
+            <h3>QC Pass Rate</h3>
+            <p class="kpi-value">{{ qc_rate }}%</p>
+        </div>
+    </div>
+    <div class="kpi-card {% if at_risk > 0 %}kpi-card-danger{% endif %}">
+        <div class="kpi-icon icon-red"><i class="bx bx-error-alt"></i></div>
+        <div class="kpi-info">
+            <h3>Orders At Risk</h3>
+            <p class="kpi-value">{{ at_risk }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="dashboard-row grid-2-2" style="margin-top:24px;">
+    <!-- Orders by Status -->
+    <section class="dashboard-panel">
+        <div class="panel-header"><h3><i class="bx bx-bar-chart-alt-2"></i> Orders by Status</h3></div>
+        <div class="panel-body">
+            <div class="chart-bars">
+                {% for status, count in status_counts.items() %}
+                <div class="chart-bar-row">
+                    <span class="chart-label">{{ status | replace('_', ' ') }}</span>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill
+                            {% if status == 'DISPATCHED' %}bg-green{% elif status == 'NEW' %}bg-blue{% elif status in ('PICKING','PACKING') %}bg-orange{% elif status == 'ON_HOLD' %}bg-red{% else %}bg-purple{% endif %}"
+                             style="width: {{ (count / total_orders * 100) | round(1) }}%;">
+                        </div>
+                    </div>
+                    <span class="chart-value">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Orders by Priority -->
+    <section class="dashboard-panel">
+        <div class="panel-header"><h3><i class="bx bx-flag"></i> Orders by Priority</h3></div>
+        <div class="panel-body">
+            <div class="chart-bars">
+                {% for level in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] %}
+                {% set count = priority_counts.get(level, 0) %}
+                <div class="chart-bar-row">
+                    <span class="chart-label"><span class="badge-priority badge-priority-{{ level|lower }}" style="font-size:10px;">{{ level }}</span></span>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill
+                            {% if level == 'CRITICAL' %}bg-red{% elif level == 'HIGH' %}bg-orange{% elif level == 'MEDIUM' %}bg-blue{% else %}bg-green{% endif %}"
+                             style="width: {{ (count / total_orders * 100) | round(1) if total_orders > 0 else 0 }}%;">
+                        </div>
+                    </div>
+                    <span class="chart-value">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="dashboard-row grid-2-2" style="margin-top:24px;">
+    <!-- Inventory Health -->
+    <section class="dashboard-panel">
+        <div class="panel-header"><h3><i class="bx bx-line-chart"></i> Inventory Health</h3></div>
+        <div class="panel-body">
+            <div class="chart-bars">
+                {% set inv_total = inv_health.values() | sum %}
+                {% for status, count in inv_health.items() %}
+                <div class="chart-bar-row">
+                    <span class="chart-label">{{ status }}</span>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill
+                            {% if status == 'HEALTHY' %}bg-green{% elif status == 'LOW STOCK' %}bg-orange{% elif status == 'CRITICAL' %}bg-red{% else %}bg-purple{% endif %}"
+                             style="width: {{ (count / inv_total * 100) | round(1) if inv_total > 0 else 0 }}%;">
+                        </div>
+                    </div>
+                    <span class="chart-value">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Exception Distribution -->
+    <section class="dashboard-panel">
+        <div class="panel-header"><h3><i class="bx bx-error-alt"></i> Exception Distribution</h3></div>
+        <div class="panel-body">
+            <div class="chart-bars">
+                {% set exc_total = exc_types.values() | sum %}
+                {% for etype, count in exc_types.items() %}
+                <div class="chart-bar-row">
+                    <span class="chart-label">{{ etype | replace('_', ' ') }}</span>
+                    <div class="chart-bar-track">
+                        <div class="chart-bar-fill bg-orange" style="width: {{ (count / exc_total * 100) | round(1) if exc_total > 0 else 0 }}%;"></div>
+                    </div>
+                    <span class="chart-value">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Bottleneck Detection -->
+{% if bottleneck %}
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-traffic"></i> Primary Bottleneck</h3>
+        <span class="badge badge-danger">{{ bottleneck.severity }}</span>
+    </div>
+    <div class="panel-body">
+        <div class="bottleneck-detail-card">
+            <div class="bottleneck-headline">
+                <span class="pulse-indicator-red"></span>
+                <h4>🔴 {{ bottleneck.stage }}</h4>
+            </div>
+            <div class="bottleneck-metrics">
+                <div class="exc-meta-item">
+                    <span class="meta-label">Average Time</span>
+                    <span class="meta-value font-mono text-danger">{{ bottleneck.avg_minutes }} min</span>
+                </div>
+                <div class="exc-meta-item">
+                    <span class="meta-label">Target Time</span>
+                    <span class="meta-value font-mono">{{ bottleneck.target_minutes }} min</span>
+                </div>
+                <div class="exc-meta-item">
+                    <span class="meta-label">Overrun</span>
+                    <span class="meta-value font-mono text-danger">+{{ bottleneck.overrun_pct }}%</span>
+                </div>
+                <div class="exc-meta-item">
+                    <span class="meta-label">Affected Orders</span>
+                    <span class="meta-value font-mono">{{ bottleneck.order_count }}</span>
+                </div>
+            </div>
+
+            <div class="exc-decision-panel" style="margin-top:16px;">
+                <div class="exc-decision-section">
+                    <h6><i class="bx bx-brain"></i> ANALYSIS</h6>
+                    <p>Average {{ bottleneck.stage|lower }} time ({{ bottleneck.avg_minutes }}m) is significantly above the {{ bottleneck.target_minutes }}m target.</p>
+                </div>
+                <div class="exc-decision-section">
+                    <h6><i class="bx bx-target-lock"></i> RECOMMENDED ACTION</h6>
+                    <p>Prioritize Zone B batch picking and redistribute picker assignments to reduce travel time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Processing Time by Stage -->
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header"><h3><i class="bx bx-time-five"></i> Processing Time by Stage</h3></div>
+    <div class="panel-body">
+        <div class="chart-bars">
+            {% for stage, data in stage_metrics.items() %}
+            <div class="chart-bar-row">
+                <span class="chart-label">{{ stage }}</span>
+                <div class="chart-bar-track">
+                    <div class="chart-bar-fill {% if data.avg_minutes > data.target_minutes %}bg-red{% else %}bg-green{% endif %}"
+                         style="width: {{ (data.avg_minutes / 25 * 100) | round(1) }}%;">
+                    </div>
+                </div>
+                <span class="chart-value">{{ data.avg_minutes }}m <span class="text-muted">(target: {{ data.target_minutes }}m)</span></span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

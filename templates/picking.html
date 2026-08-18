@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Picking{% endblock %}
+{% block header_subtitle %}Live picking operations and queue visibility{% endblock %}
+
+{% block content %}
+<!-- Picking KPIs -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon icon-orange"><i class="bx bx-time-five"></i></div>
+        <div class="kpi-info">
+            <h3>Waiting</h3>
+            <p class="kpi-value">{{ kpi.waiting }}</p>
+            <span class="kpi-trend text-muted">In queue</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-blue"><i class="bx bx-loader-circle"></i></div>
+        <div class="kpi-info">
+            <h3>In Progress</h3>
+            <p class="kpi-value">{{ kpi.in_progress }}</p>
+            <span class="kpi-trend text-primary">Active now</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-check-circle"></i></div>
+        <div class="kpi-info">
+            <h3>Completed</h3>
+            <p class="kpi-value">{{ kpi.completed }}</p>
+            <span class="kpi-trend text-success">Done</span>
+        </div>
+    </div>
+    <div class="kpi-card {% if kpi.blocked > 0 %}kpi-card-danger{% endif %}">
+        <div class="kpi-icon icon-red"><i class="bx bx-block"></i></div>
+        <div class="kpi-info">
+            <h3>Blocked</h3>
+            <p class="kpi-value">{{ kpi.blocked }}</p>
+            {% if kpi.blocked > 0 %}
+            <span class="kpi-trend text-danger">Issues reported</span>
+            {% else %}
+            <span class="kpi-trend text-success">All clear</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Optimization Hints -->
+{% if optimization %}
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-route"></i> Batch Optimization</h3>
+        <span class="badge badge-info">{{ optimization|length }} suggestion{{ 's' if optimization|length > 1 }}</span>
+    </div>
+    <div class="panel-body">
+        <div class="optimization-grid">
+        {% for opt in optimization %}
+            <div class="optimization-card">
+                <div class="opt-header">
+                    <span class="opt-zone-badge">Zone {{ opt.zone }}</span>
+                    <span class="opt-reduction">~{{ opt.travel_reduction_pct }}% travel reduction</span>
+                </div>
+                <p class="opt-recommendation">{{ opt.recommendation }}</p>
+                <div class="opt-orders">
+                    {% for num in opt.order_numbers %}
+                    <a href="/orders/{{ num }}" class="opt-order-pill">{{ num }}</a>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Picking Tasks Table -->
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-cart-download"></i> Picking Tasks</h3>
+        <span class="badge badge-info">{{ kpi.total }} Total</span>
+    </div>
+    <div class="panel-body">
+        <div class="responsive-table-wrap">
+        <table class="data-table" id="picking-table">
+            <thead>
+                <tr>
+                    <th>Task ID</th>
+                    <th>Order</th>
+                    <th>Product</th>
+                    <th>Priority</th>
+                    <th>Zone</th>
+                    <th>Qty</th>
+                    <th>Picker</th>
+                    <th>Elapsed</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tasks %}
+                <tr>
+                    <td><strong>{{ t.task_id }}</strong></td>
+                    <td><a href="/orders/{{ t.order_number }}" class="link">{{ t.order_number }}</a></td>
+                    <td class="col-category">{{ t.product_name or t.sku }}</td>
+                    <td><span class="badge-priority badge-priority-{{ t.priority_level|lower }}">{{ t.priority_level }}</span></td>
+                    <td><span class="zone-badge">{{ t.zone }}</span></td>
+                    <td class="font-mono">{{ t.quantity }}</td>
+                    <td>{{ t.assigned_picker or '—' }}</td>
+                    <td class="font-mono">
+                        {% if t.status == 'IN_PROGRESS' %}
+                            <span class="text-warning">{{ t.elapsed_minutes }}m</span>
+                        {% elif t.status == 'COMPLETED' %}
+                            <span class="text-success">Done</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td><span class="badge-status badge-status-{{ t.status|lower }}">{{ t.status | replace('_', ' ') }}</span></td>
+                    <td>
+                        {% if t.status == 'WAITING' %}
+                            <button class="btn btn-sm btn-primary" onclick="startPicking('{{ t.task_id }}')">
+                                <i class="bx bx-play"></i> Start
+                            </button>
+                        {% elif t.status == 'IN_PROGRESS' %}
+                            <div class="btn-group-vertical">
+                                <button class="btn btn-sm btn-primary" onclick="completePicking('{{ t.task_id }}')">
+                                    <i class="bx bx-check"></i> Complete
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="reportPickingIssue('{{ t.task_id }}')">
+                                    <i class="bx bx-error"></i> Issue
+                                </button>
+                            </div>
+                        {% elif t.status == 'BLOCKED' %}
+                            <span class="text-danger"><i class="bx bx-block"></i> Blocked</span>
+                        {% else %}
+                            <span class="text-success"><i class="bx bx-check"></i></span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</section>
+
+<!-- Report Issue Modal -->
+<div class="modal-overlay" id="picking-issue-modal" style="display:none;">
+    <div class="modal-card" style="max-width:440px; text-align:left;">
+        <h3><i class="bx bx-error text-danger"></i> Report Picking Issue</h3>
+        <div class="form-group" style="width:100%; margin-top:12px;">
+            <label>Issue Type</label>
+            <select id="issue-type">
+                <option value="MISSING_ITEM">Missing Item</option>
+                <option value="DAMAGED_ITEM">Damaged Item</option>
+                <option value="WRONG_LOCATION">Wrong Location</option>
+            </select>
+        </div>
+        <div class="form-group" style="width:100%; margin-top:8px;">
+            <label>Note</label>
+            <textarea id="issue-note" rows="2" placeholder="Describe the issue…" style="width:100%;"></textarea>
+        </div>
+        <input type="hidden" id="issue-task-id">
+        <div style="display:flex; gap:12px; width:100%; margin-top:12px;">
+            <button class="btn btn-secondary" onclick="closePickingIssueModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-danger" onclick="submitPickingIssue()" style="flex:2;">Report Issue</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block page_title %}WAREFLOW — Intelligent Warehouse Operations{% endblock %}</title>
+    <meta name="description" content="WAREFLOW — Intelligent Warehouse Management System for real-time order tracking, inventory control, and fulfillment operations.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Boxicons -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="bx bxs-component"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>WAREFLOW</h1>
+                    <span>Intelligent Warehouse Operations &amp; Fulfillment Platform</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="{% if request.path == '/' %}active{% endif %}">
+                        <a href="/">
+                            <i class="bx bxs-dashboard"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/orders') %}active{% endif %}">
+                        <a href="/orders">
+                            <i class="bx bx-transfer-alt"></i>
+                            <span>Orders</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/inventory') %}active{% endif %}">
+                        <a href="/inventory">
+                            <i class="bx bxs-package"></i>
+                            <span>Inventory</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/picking') %}active{% endif %}">
+                        <a href="/picking">
+                            <i class="bx bx-cart-download"></i>
+                            <span>Picking</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/packing') %}active{% endif %}">
+                        <a href="/packing">
+                            <i class="bx bxs-package"></i>
+                            <span>Packing &amp; QC</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/dispatch') %}active{% endif %}">
+                        <a href="/dispatch">
+                            <i class="bx bx-trending-up"></i>
+                            <span>Dispatch</span>
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/exceptions') %}active{% endif %}">
+                        <a href="/exceptions">
+                            <i class="bx bx-error-alt"></i>
+                            <span>Exceptions</span>
+                            {% if open_exceptions is defined and open_exceptions > 0 %}
+                                <span class="nav-badge">{{ open_exceptions }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    <li class="{% if request.path.startswith('/analytics') %}active{% endif %}">
+                        <a href="/analytics">
+                            <i class="bx bxs-bar-chart-alt-2"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <div class="status-details">
+                        <p class="status-title">System Status</p>
+                        <p class="status-desc">Operational</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="content-header">
+                <div class="header-title">
+                    <h2>{% block header_title %}Dashboard{% endblock %}</h2>
+                    <p>{% block header_subtitle %}Real-time warehouse operations overview{% endblock %}</p>
+                    <p class="current-date" id="live-date">Loading date &amp; time...</p>
+                </div>
+                <div class="header-actions">
+                    <div class="global-search-wrap" id="global-search-wrap">
+                        <i class="bx bx-search search-icon"></i>
+                        <input type="text" id="global-search-input" placeholder="Search orders, SKUs, exceptions…"
+                               autocomplete="off" onkeydown="handleGlobalSearch(event)" oninput="showSearchHint(this)">
+                        <div class="search-hint" id="search-hint" style="display:none;">Press Enter to search</div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="simulateRefresh()">
+                        <i class="bx bx-refresh"></i> Refresh
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar">
+                            <span class="avatar-letter">A</span>
+                        </div>
+                        <div class="user-info">
+                            <p class="user-name">Warehouse Director</p>
+                            <p class="user-role">Zone 1 Manager</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-body">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Dispatch{% endblock %}
+{% block header_subtitle %}Courier coordination and outbound fulfillment status{% endblock %}
+
+{% block content %}
+<!-- Dispatch KPIs -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon icon-orange"><i class="bx bx-package"></i></div>
+        <div class="kpi-info">
+            <h3>Ready to Dispatch</h3>
+            <p class="kpi-value">{{ kpi.ready }}</p>
+            <span class="kpi-trend text-warning">Awaiting pickup</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-blue"><i class="bx bx-loader-circle"></i></div>
+        <div class="kpi-info">
+            <h3>Dispatching</h3>
+            <p class="kpi-value">{{ kpi.dispatching }}</p>
+            <span class="kpi-trend text-primary">In transit</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-check-double"></i></div>
+        <div class="kpi-info">
+            <h3>Dispatched</h3>
+            <p class="kpi-value">{{ kpi.dispatched }}</p>
+            <span class="kpi-trend text-success">Delivered</span>
+        </div>
+    </div>
+    <div class="kpi-card {% if kpi.delayed > 0 %}kpi-card-danger{% endif %}">
+        <div class="kpi-icon icon-red"><i class="bx bx-error-alt"></i></div>
+        <div class="kpi-info">
+            <h3>Delayed</h3>
+            <p class="kpi-value">{{ kpi.delayed }}</p>
+            {% if kpi.delayed > 0 %}
+            <span class="kpi-trend text-danger">Needs attention</span>
+            {% else %}
+            <span class="kpi-trend text-success">On schedule</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Dispatch Table -->
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-trending-up"></i> Dispatch Records</h3>
+        <span class="badge badge-info">{{ kpi.total }} Total</span>
+    </div>
+    <div class="panel-body">
+        <div class="responsive-table-wrap">
+        <table class="data-table" id="dispatch-table">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Courier</th>
+                    <th>Tracking</th>
+                    <th>Ready At</th>
+                    <th>Dispatched At</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in dispatch_records %}
+                <tr>
+                    <td><a href="/orders/{{ d.order_number }}" class="link"><strong>{{ d.order_number }}</strong></a></td>
+                    <td>{{ d.customer_name or '—' }}</td>
+                    <td>{{ d.courier }}</td>
+                    <td class="font-mono">{{ d.tracking_number or '—' }}</td>
+                    <td>{{ d.ready_at_formatted }}</td>
+                    <td>{{ d.dispatched_at_formatted }}</td>
+                    <td>
+                        {% if d.dispatch_status == 'DISPATCHED' %}
+                            <span class="badge-status badge-status-dispatched">DISPATCHED</span>
+                        {% elif d.dispatch_status == 'DISPATCHING' %}
+                            <span class="badge-status badge-status-picking">DISPATCHING</span>
+                        {% elif d.dispatch_status == 'DELAYED' %}
+                            <span class="badge-status badge-status-on_hold">DELAYED</span>
+                        {% else %}
+                            <span class="badge-status badge-status-new">READY</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.dispatch_status == 'READY' %}
+                            <button class="btn btn-sm btn-primary" onclick="startDispatch('{{ d.order_number }}')">
+                                <i class="bx bx-send"></i> Start
+                            </button>
+                        {% elif d.dispatch_status == 'DISPATCHING' %}
+                            <button class="btn btn-sm btn-primary" onclick="completeDispatch('{{ d.order_number }}')">
+                                <i class="bx bx-check"></i> Mark Dispatched
+                            </button>
+                        {% elif d.dispatch_status == 'DISPATCHED' %}
+                            <span class="text-success"><i class="bx bx-check-double"></i></span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

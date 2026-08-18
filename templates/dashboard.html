@@ -1,0 +1,397 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Dashboard{% endblock %}
+{% block header_subtitle %}Real-time warehouse operations overview{% endblock %}
+
+{% block content %}
+<div class="page-header-shell">
+    <div class="page-kicker">WAREHOUSE OVERVIEW</div>
+    <h3>Operations command center</h3>
+    <p>Monitor fulfillment health, flag risk, and prioritize intervention across the floor.</p>
+</div>
+
+<!-- Quick Actions Bar -->
+<div class="quick-actions-bar">
+    <button class="btn btn-primary btn-new-order" onclick="openNewOrderModal()">
+        <i class="bx bx-plus-circle"></i> New Order
+    </button>
+    <a href="/orders" class="btn btn-secondary"><i class="bx bx-transfer-alt"></i> View Orders</a>
+    <a href="/inventory" class="btn btn-secondary"><i class="bx bxs-package"></i> View Inventory</a>
+    <a href="/picking" class="btn btn-secondary"><i class="bx bx-cart-download"></i> Picking Queue</a>
+</div>
+
+<!-- KPI Grid -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon icon-blue"><i class="bx bx-shopping-bag"></i></div>
+        <div class="kpi-info">
+            <h3>Total Orders</h3>
+            <p class="kpi-value">{{ total_orders }}</p>
+            <span class="kpi-trend text-success"><i class="bx bx-trending-up"></i> +12% vs last cycle</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-orange"><i class="bx bx-time-five"></i></div>
+        <div class="kpi-info">
+            <h3>Pending Orders</h3>
+            <p class="kpi-value">{{ pending_orders }}</p>
+            <span class="kpi-trend text-muted">Active queue</span>
+        </div>
+    </div>
+    <div class="kpi-card {% if orders_at_risk > 0 %}kpi-card-danger{% endif %}">
+        <div class="kpi-icon icon-red"><i class="bx bx-error-alt"></i></div>
+        <div class="kpi-info">
+            <h3>Orders At Risk</h3>
+            <p class="kpi-value">{{ orders_at_risk }}</p>
+            {% if orders_at_risk > 0 %}
+                <span class="kpi-trend text-danger"><i class="bx bxs-error-circle"></i> Action required</span>
+            {% else %}
+                <span class="kpi-trend text-success"><i class="bx bx-check-circle"></i> Risk-free</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-line-chart"></i></div>
+        <div class="kpi-info">
+            <h3>Inventory Health</h3>
+            <p class="kpi-value">{{ inventory_health }}%</p>
+            <span class="kpi-trend {% if inventory_health > 90 %}text-success{% else %}text-warning{% endif %}">
+                {% if inventory_health > 90 %}Optimum levels{% else %}Restock suggested{% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-purple"><i class="bx bx-bolt-circle"></i></div>
+        <div class="kpi-info">
+            <h3>Picking Efficiency</h3>
+            <p class="kpi-value">{{ picking_efficiency }}%</p>
+            <span class="kpi-trend text-success"><i class="bx bx-trending-up"></i> +2.4% today</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-teal"><i class="bx bx-check-double"></i></div>
+        <div class="kpi-info">
+            <h3>Fulfillment Rate</h3>
+            <p class="kpi-value">{{ fulfillment_rate }}%</p>
+            <span class="kpi-trend text-success"><i class="bx bx-check"></i> Within SLA target</span>
+        </div>
+    </div>
+</div>
+
+<!-- Middle Section: Priority Action Center & Fulfillment Pipeline -->
+<div class="dashboard-row grid-2-1">
+    <!-- Priority Action Center -->
+    <section class="dashboard-panel panel-action-center">
+        <div class="panel-header">
+            <h3><i class="bx bx-shield-quarter"></i> Priority Action Center</h3>
+            <span class="badge badge-danger">Urgent Action</span>
+        </div>
+        <div class="panel-body">
+            {% if highest_priority_order %}
+                {% if demo_order_allocated %}
+                    <div class="priority-action-card success-card">
+                        <div class="action-status-banner text-success">
+                            <i class="bx bx-check-circle"></i>
+                            <strong>ALLOCATION COMPLETED</strong>
+                        </div>
+                        <div class="action-order-header">
+                            <div class="action-title-group">
+                                <h4>Order {{ highest_priority_order.order_number }}</h4>
+                                <p class="action-customer">{{ highest_priority_order.customer_name }}</p>
+                            </div>
+                            <div class="action-badge-group">
+                                <span class="badge-priority badge-priority-low">{{ highest_priority_order.status }}</span>
+                                <span class="action-score-badge">Score: <strong>{{ highest_priority_order.score }}</strong></span>
+                            </div>
+                        </div>
+                        <div class="action-recommendation success-bg">
+                            <h5>ALLOCATION RESULTS</h5>
+                            <p class="success-text"><strong>7 units</strong> allocated | <strong>3 units</strong> pending</p>
+                            <span class="exception-alert-text"><i class="bx bx-error"></i> Stock shortage exception created.</span>
+                        </div>
+                        <div class="action-footer">
+                            <a href="/orders/{{ highest_priority_order.order_number }}" class="btn btn-secondary btn-full-width">
+                                <i class="bx bx-zoom-in"></i> Review Details
+                            </a>
+                        </div>
+                    </div>
+                {% elif highest_priority_order.order_number == 'ORD-1042' %}
+                    <div class="priority-action-card critical-decision-card">
+                        <div class="action-status-banner text-danger">
+                            <span class="pulse-indicator-red"></span>
+                            <strong>CRITICAL DECISION</strong>
+                        </div>
+                        <div class="action-order-header">
+                            <div class="action-title-group">
+                                <h4>Order {{ highest_priority_order.order_number }}</h4>
+                                <p class="action-customer">{{ highest_priority_order.customer_name }}</p>
+                            </div>
+                            <div class="action-badge-group">
+                                <span class="badge-priority badge-priority-critical">{{ highest_priority_order.priority_level }}</span>
+                                <span class="action-score-badge">Score: <strong>{{ highest_priority_order.score }}</strong></span>
+                            </div>
+                        </div>
+                        <div class="action-recommendation warning-bg">
+                            <h5>STOCK CONFLICT DETECTED</h5>
+                            <p class="conflict-text"><strong>10 required</strong> | <strong>7 available</strong> (SKU-104)</p>
+                            <p class="recommendation-text">Recommended: Allocate all 7 units to Order #1042.</p>
+                        </div>
+                        <div class="action-footer">
+                            <a href="/orders/{{ highest_priority_order.order_number }}" class="btn btn-primary btn-full-width">
+                                <i class="bx bx-zoom-in"></i> Review Order
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="priority-action-card">
+                        <div class="action-status-banner">
+                            <span class="pulse-indicator-red"></span>
+                            <strong>ACTION REQUIRED</strong>
+                        </div>
+                        <div class="action-order-header">
+                            <div class="action-title-group">
+                                <h4>Order {{ highest_priority_order.order_number }}</h4>
+                                <p class="action-customer">{{ highest_priority_order.customer_name }}</p>
+                            </div>
+                            <div class="action-badge-group">
+                                <span class="badge-priority badge-priority-{{ highest_priority_order.priority_level|lower }}">{{ highest_priority_order.priority_level }}</span>
+                                <span class="action-score-badge">Score: <strong>{{ highest_priority_order.score }}</strong></span>
+                            </div>
+                        </div>
+                        <div class="action-recommendation">
+                            <h5>OPERATIONAL RECOMMENDATION</h5>
+                            <p class="recommendation-text">
+                                "This order should be processed before lower-priority orders because its delivery deadline is approaching and it has high operational risk."
+                            </p>
+                        </div>
+                        <div class="action-footer">
+                            <a href="/orders/{{ highest_priority_order.order_number }}" class="btn btn-primary btn-full-width">
+                                <i class="bx bx-zoom-in"></i> Review Order
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <p class="no-data">No active orders found requiring priority action.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Fulfillment Pipeline -->
+    <section class="dashboard-panel panel-pipeline">
+        <div class="panel-header">
+            <h3><i class="bx bx-git-commit"></i> Fulfillment Pipeline</h3>
+        </div>
+        <div class="panel-body">
+            <div class="pipeline-container">
+                <div class="pipeline-stage">
+                    <div class="stage-info">
+                        <span class="stage-name"><i class="bx bx-bookmark-plus text-muted"></i> Pending (New)</span>
+                        <span class="stage-count"><strong>{{ pipeline.Pending }}</strong> orders</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-blue" style="width: {{ pipeline_pcts.Pending }}%"></div>
+                    </div>
+                </div>
+                <div class="pipeline-stage">
+                    <div class="stage-info">
+                        <span class="stage-name"><i class="bx bx-search-alt text-warning"></i> Picking</span>
+                        <span class="stage-count"><strong>{{ pipeline.Picking }}</strong> orders</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-orange" style="width: {{ pipeline_pcts.Picking }}%"></div>
+                    </div>
+                </div>
+                <div class="pipeline-stage">
+                    <div class="stage-info">
+                        <span class="stage-name"><i class="bx bx-box text-purple"></i> Packing</span>
+                        <span class="stage-count"><strong>{{ pipeline.Packing }}</strong> orders</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-purple" style="width: {{ pipeline_pcts.Packing }}%"></div>
+                    </div>
+                </div>
+                <div class="pipeline-stage">
+                    <div class="stage-info">
+                        <span class="stage-name"><i class="bx bx-navigation text-success"></i> Shipped</span>
+                        <span class="stage-count"><strong>{{ pipeline.Shipped }}</strong> orders</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar bg-green" style="width: {{ pipeline_pcts.Shipped }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Lower Section -->
+<div class="dashboard-row grid-1-1-1">
+    <!-- Warehouse Health -->
+    <section class="dashboard-panel">
+        <div class="panel-header">
+            <h3><i class="bx bx-heart-rate"></i> Warehouse Health</h3>
+        </div>
+        <div class="panel-body">
+            <div class="health-metrics">
+                <div class="health-item">
+                    <div class="health-meta">
+                        <span>Storage Space Utilization</span>
+                        <strong>{{ storage_utilization }}%</strong>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar {% if storage_utilization > 85 %}bg-red{% elif storage_utilization > 70 %}bg-orange{% else %}bg-green{% endif %}" style="width: {{ storage_utilization }}%"></div>
+                    </div>
+                    <span class="health-subtitle">3,500 Max Pallet Capacity</span>
+                </div>
+                <div class="health-item picker-roster">
+                    <span>Active Picker Terminals ({{ active_pickers_count }})</span>
+                    {% if pickers %}
+                        <div class="picker-list">
+                            {% for picker in pickers %}
+                                <div class="picker-pill">
+                                    <span class="picker-dot"></span>
+                                    <span>{{ picker }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="no-data">No pickers active on system terminal.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottleneck Detection -->
+    <section class="dashboard-panel">
+        <div class="panel-header">
+            <h3><i class="bx bx-traffic"></i> Bottleneck Detection</h3>
+        </div>
+        <div class="panel-body">
+            {% if bottlenecks %}
+                <div class="bottleneck-list">
+                    {% for item in bottlenecks %}
+                        <div class="bottleneck-item card-{{ item.severity|lower }}">
+                            <div class="bottleneck-header">
+                                <span class="bottleneck-location"><strong>{{ item.area }}</strong></span>
+                                <span class="badge {% if item.severity == 'Critical' %}badge-danger{% else %}badge-warning{% endif %}">{{ item.severity }}</span>
+                            </div>
+                            <p class="bottleneck-desc">{{ item.description }}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-data">No congestion or operational barriers detected.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="dashboard-panel">
+        <div class="panel-header">
+            <h3><i class="bx bx-list-ul"></i> Recent Activity</h3>
+        </div>
+        <div class="panel-body panel-activity-body">
+            <div class="activity-timeline">
+                {% for act in recent_activities %}
+                    <div class="activity-item">
+                        <div class="activity-badge badge-{{ act.severity }}">
+                            {% if act.activity_type == 'Order' %}
+                                <i class="bx bx-shopping-bag"></i>
+                            {% elif act.activity_type == 'Inventory' %}
+                                <i class="bx bx-package"></i>
+                            {% elif act.activity_type == 'Picker' %}
+                                <i class="bx bx-user"></i>
+                            {% elif act.activity_type == 'Carrier' %}
+                                <i class="bx bx-truck"></i>
+                            {% elif act.activity_type == 'Delay' %}
+                                <i class="bx bx-error-alt"></i>
+                            {% elif act.activity_type == 'QC' %}
+                                <i class="bx bx-check-shield"></i>
+                            {% elif act.activity_type == 'Packing' %}
+                                <i class="bx bx-box"></i>
+                            {% else %}
+                                <i class="bx bx-info-circle"></i>
+                            {% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <p class="activity-text">{{ act.message }}</p>
+                            <span class="activity-time">{{ act.time_formatted }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- New Order Modal -->
+<div class="modal-overlay" id="new-order-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 560px; text-align: left;">
+        <div class="modal-card-header" style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom: 8px;">
+            <h3 style="margin:0; font-size:18px;"><i class="bx bx-plus-circle"></i> Place New Order</h3>
+            <button class="btn-icon" onclick="closeNewOrderModal()" style="background:none; border:none; cursor:pointer; font-size:22px; color:var(--text-muted);">
+                <i class="bx bx-x"></i>
+            </button>
+        </div>
+
+        <form id="new-order-form" onsubmit="return submitNewOrder(event)" style="width:100;">
+            <div class="form-group">
+                <label>Customer Name <span class="required">*</span></label>
+                <input type="text" id="no-customer" placeholder="e.g. ABC Electronics" required>
+            </div>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Customer Priority</label>
+                    <select id="no-priority">
+                        <option value="NORMAL">Normal</option>
+                        <option value="HIGH">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Urgency</label>
+                    <select id="no-urgency">
+                        <option value="0">Normal</option>
+                        <option value="1">Urgent</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Product <span class="required">*</span></label>
+                <select id="no-sku" required>
+                    <option value="">Select a product…</option>
+                    {% for p in inventory_for_modal %}
+                        <option value="{{ p.sku }}">{{ p.sku }} — {{ p.name }} ({{ p.category }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label>Quantity <span class="required">*</span></label>
+                    <input type="number" id="no-quantity" min="1" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Order Value (₹)</label>
+                    <input type="number" id="no-value" min="0" step="0.01" value="0" placeholder="12500">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Delivery Deadline <span class="required">*</span></label>
+                <input type="datetime-local" id="no-deadline" required>
+            </div>
+
+            <div class="form-actions" style="display:flex; gap:12px; margin-top:16px;">
+                <button type="button" class="btn btn-secondary" onclick="closeNewOrderModal()" style="flex:1;">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="no-submit-btn" style="flex:2;">
+                    <i class="bx bx-check"></i> Create Order
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

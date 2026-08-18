@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Exceptions{% endblock %}
+{% block header_subtitle %}Detect, decide, and resolve warehouse disruptions{% endblock %}
+
+{% block content %}
+<!-- Exception KPIs -->
+<div class="kpi-grid">
+    <div class="kpi-card kpi-card-danger">
+        <div class="kpi-icon icon-red"><i class="bx bx-error-alt"></i></div>
+        <div class="kpi-info">
+            <h3>Open Exceptions</h3>
+            <p class="kpi-value">{{ kpi.open }}</p>
+            <span class="kpi-trend text-danger">Requires attention</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-red"><i class="bx bx-shield-x"></i></div>
+        <div class="kpi-info">
+            <h3>Critical</h3>
+            <p class="kpi-value">{{ kpi.critical }}</p>
+            <span class="kpi-trend text-danger">Immediate action</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-orange"><i class="bx bx-flag"></i></div>
+        <div class="kpi-info">
+            <h3>High Priority</h3>
+            <p class="kpi-value">{{ kpi.high }}</p>
+            <span class="kpi-trend text-warning">Monitor</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-check-circle"></i></div>
+        <div class="kpi-info">
+            <h3>Resolved</h3>
+            <p class="kpi-value">{{ kpi.resolved }}</p>
+            <span class="kpi-trend text-success">Completed</span>
+        </div>
+    </div>
+</div>
+
+<!-- Exceptions List -->
+<section class="dashboard-panel" style="margin-top: 24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-error-alt"></i> Exception Registry</h3>
+        <span class="badge badge-info">{{ kpi.total }} Total</span>
+    </div>
+    <div class="panel-body">
+        {% if exceptions %}
+        <div class="exception-cards-grid">
+            {% for exc in exceptions %}
+            <div class="exception-card exc-severity-{{ exc.severity|lower }}" id="exc-card-{{ exc.exception_id }}">
+                <!-- Header -->
+                <div class="exc-card-header">
+                    <div class="exc-header-left">
+                        <span class="badge-priority badge-priority-{{ exc.severity|lower }}">{{ exc.severity }}</span>
+                        <span class="exc-type-label">{{ exc.exception_type | replace('_', ' ') }}</span>
+                    </div>
+                    <div class="exc-header-right">
+                        <span class="exc-id-badge">{{ exc.exception_id }}</span>
+                        <span class="badge-status badge-status-{{ exc.status|lower }}">{{ exc.status }}</span>
+                    </div>
+                </div>
+
+                <!-- Details -->
+                <div class="exc-card-body">
+                    <div class="exc-meta-row">
+                        {% if exc.order_number %}
+                        <div class="exc-meta-item">
+                            <span class="meta-label">Order</span>
+                            <a href="/orders/{{ exc.order_number }}" class="meta-value link">#{{ exc.order_number }}</a>
+                        </div>
+                        {% endif %}
+                        {% if exc.sku %}
+                        <div class="exc-meta-item">
+                            <span class="meta-label">SKU</span>
+                            <span class="meta-value">{{ exc.sku }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="exc-meta-item">
+                            <span class="meta-label">Detected</span>
+                            <span class="meta-value">{{ exc.detected_formatted }}</span>
+                        </div>
+                    </div>
+
+                    <p class="exc-description">{{ exc.description }}</p>
+
+                    <!-- Decision Center -->
+                    <div class="exc-decision-panel">
+                        <div class="exc-decision-section">
+                            <h6><i class="bx bx-brain"></i> SYSTEM DECISION</h6>
+                            <p>{{ exc.system_decision }}</p>
+                        </div>
+                        <div class="exc-decision-section">
+                            <h6><i class="bx bx-target-lock"></i> RECOMMENDED ACTION</h6>
+                            <p>{{ exc.recommended_action }}</p>
+                        </div>
+                        <div class="exc-decision-section">
+                            <h6><i class="bx bx-line-chart"></i> EXPECTED IMPACT</h6>
+                            <p>{{ exc.expected_impact }}</p>
+                        </div>
+                    </div>
+
+                    {% if exc.resolution_note %}
+                    <div class="exc-resolution-note">
+                        <i class="bx bx-note"></i> <strong>Resolution:</strong> {{ exc.resolution_note }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Actions -->
+                {% if exc.status in ('OPEN', 'IN_PROGRESS') %}
+                <div class="exc-card-actions">
+                    <button class="btn btn-sm btn-primary" onclick="resolveException('{{ exc.exception_id }}')">
+                        <i class="bx bx-check"></i> Resolve
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="overrideException('{{ exc.exception_id }}')">
+                        <i class="bx bx-revision"></i> Override
+                    </button>
+                    {% if exc.order_number %}
+                    <a href="/orders/{{ exc.order_number }}" class="btn btn-sm btn-secondary">
+                        <i class="bx bx-link-external"></i> View Order
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-data">No exceptions have been recorded.</p>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Resolve Modal -->
+<div class="modal-overlay" id="resolve-modal" style="display:none;">
+    <div class="modal-card" style="max-width:440px; text-align:left;">
+        <h3 style="margin-bottom:8px;"><i class="bx bx-check-circle text-success"></i> Resolve Exception</h3>
+        <p class="modal-card-desc">Add a resolution note before closing this exception.</p>
+        <div class="form-group" style="width:100%; margin-top:12px;">
+            <label>Resolution Note</label>
+            <textarea id="resolve-note" rows="3" placeholder="e.g. Replacement stock allocated." style="width:100%;"></textarea>
+        </div>
+        <input type="hidden" id="resolve-exc-id">
+        <div style="display:flex; gap:12px; width:100%; margin-top:12px;">
+            <button class="btn btn-secondary" onclick="closeResolveModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-primary" onclick="submitResolve()" style="flex:2;">Confirm Resolution</button>
+        </div>
+    </div>
+</div>
+
+<!-- Override Modal -->
+<div class="modal-overlay" id="override-modal" style="display:none;">
+    <div class="modal-card" style="max-width:440px; text-align:left;">
+        <h3 style="margin-bottom:8px;"><i class="bx bx-revision text-warning"></i> Override Decision</h3>
+        <p class="modal-card-desc">Override the system recommendation with an operator decision.</p>
+        <div class="form-group" style="width:100%; margin-top:12px;">
+            <label>Override Reason</label>
+            <textarea id="override-note" rows="3" placeholder="e.g. Operator overrode system recommendation." style="width:100%;"></textarea>
+        </div>
+        <input type="hidden" id="override-exc-id">
+        <div style="display:flex; gap:12px; width:100%; margin-top:12px;">
+            <button class="btn btn-secondary" onclick="closeOverrideModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-primary" onclick="submitOverride()" style="flex:2;">Confirm Override</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

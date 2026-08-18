@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Error{% endblock %}
+
+{% block content %}
+<div class="empty-state" style="padding: 80px 24px; text-align: center;">
+    <div style="font-size: 72px; color: var(--text-muted); margin-bottom: 16px;">
+        {% if code == 404 %}
+            <i class="bx bx-search-alt"></i>
+        {% else %}
+            <i class="bx bx-error-circle"></i>
+        {% endif %}
+    </div>
+    <h2 style="font-size: 28px; font-weight: 800; color: var(--text-primary); margin-bottom: 8px;">{{ code }}</h2>
+    <p style="font-size: 16px; color: var(--text-secondary); margin-bottom: 24px;">{{ message }}</p>
+    <a href="/" class="btn btn-primary"><i class="bx bx-home"></i> Return to Dashboard</a>
+</div>
+{% endblock %}

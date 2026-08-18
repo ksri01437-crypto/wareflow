@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="order-detail-container">
+    <!-- Back Navigation link -->
+    <div class="back-navigation">
+        <a href="/orders" class="btn-back">
+            <i class="bx bx-left-arrow-alt"></i> Back to Order Registry
+        </a>
+    </div>
+
+    <!-- Main Header Card -->
+    <div class="detail-header-panel {% if order.priority_level == 'CRITICAL' %}border-critical{% endif %}">
+        <div class="header-main-info">
+            <div class="order-number-title">
+                <span class="badge-status badge-status-{{ order.status|lower }}">{{ order.status.replace('_', ' ') }}</span>
+                <h2>ORDER #{{ order.order_number }}</h2>
+                <p class="customer-subtitle">
+                    {{ order.customer_name }}
+                    {% if order.customer_priority == 'HIGH' %}
+                        <span class="customer-vip-badge">VIP Customer</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="header-stats-group">
+                <div class="header-stat-item">
+                    <span class="stat-label">Order Value</span>
+                    <span class="stat-value font-mono">₹{{ "{:,.2f}".format(order.total_value) }}</span>
+                </div>
+                <div class="header-stat-item">
+                    <span class="stat-label">Priority Level</span>
+                    <span class="badge-priority badge-priority-{{ order.priority_level|lower }} large-badge">
+                        {{ order.priority_level }}
+                    </span>
+                </div>
+                <div class="header-stat-item">
+                    <span class="stat-label">Priority Score</span>
+                    <span class="score-display">{{ order.score }} <span class="score-max">/ 105</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-meta-grid">
+            <div class="meta-item">
+                <i class="bx bx-calendar"></i>
+                <div>
+                    <span class="meta-label">Created Time</span>
+                    <span class="meta-value">{{ order.created_formatted }}</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-time-five"></i>
+                <div>
+                    <span class="meta-label">Delivery Deadline</span>
+                    <span class="meta-value">{{ order.deadline_formatted }}</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-hourglass"></i>
+                <div>
+                    <span class="meta-label">Time Remaining</span>
+                    <span class="meta-value {% if order.hours_remaining < 6 and order.status != 'DISPATCHED' %}text-danger font-bold{% endif %}">
+                        {% if order.status == 'DISPATCHED' %}
+                            Fulfilled
+                        {% elif order.hours_remaining < 0 %}
+                            Exceeded by {{ order.hours_remaining|abs }} hrs
+                        {% else %}
+                            {{ order.hours_remaining }} hours
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-user-voice"></i>
+                <div>
+                    <span class="meta-label">Assigned Picker</span>
+                    <span class="meta-value">{{ order.assigned_picker or 'Unassigned' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout: Engine Scoring & Actions / Recommendation -->
+    <div class="dashboard-row grid-2-1">
+        <!-- Column 1: Priority Engine Breakdown -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h3><i class="bx bx-calculator"></i> Why This Order is Prioritized</h3>
+            </div>
+            <div class="panel-body">
+                <p class="section-intro-text">
+                    The Smart Priority Engine evaluates warehouse parameters to sort picking pipelines dynamically. Below is the active rule weight audit for this order:
+                </p>
+                
+                <table class="scoring-breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Parameter Evaluated</th>
+                            <th class="text-center">Weight</th>
+                            <th>Status / Trigger Condition</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Urgency weight -->
+                        <tr class="{% if order.is_urgent %}row-triggered{% endif %}">
+                            <td>
+                                <strong>Urgency Level</strong>
+                                <span class="rule-description">Order flag set to 'Urgent' by logistics coordinator</span>
+                            </td>
+                            <td class="text-center weight-cell {% if order.is_urgent %}weight-triggered{% endif %}">
+                                {% if order.is_urgent %}+40{% else %}0{% endif %}
+                            </td>
+                            <td>
+                                {% if order.is_urgent %}
+                                    <span class="pill-active"><i class="bx bx-check-double"></i> Triggered</span>
+                                {% else %}
+                                    <span class="pill-inactive">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Customer priority weight -->
+                        <tr class="{% if order.customer_priority == 'HIGH' %}row-triggered{% endif %}">
+                            <td>
+                                <strong>Customer Tier</strong>
+                                <span class="rule-description">High-priority or SLA contracted enterprise account</span>
+                            </td>
+                            <td class="text-center weight-cell {% if order.customer_priority == 'HIGH' %}weight-triggered{% endif %}">
+                                {% if order.customer_priority == 'HIGH' %}+20{% else %}0{% endif %}
+                            </td>
+                            <td>
+                                {% if order.customer_priority == 'HIGH' %}
+                                    <span class="pill-active"><i class="bx bx-check-double"></i> Triggered (VIP)</span>
+                                {% else %}
+                                    <span class="pill-inactive">Normal Tier</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Delivery deadline weight -->
+                        <!-- Score includes +20 if hours remaining <= 6 hours -->
+                        {% set deadline_triggered = (order.hours_remaining <= 6 and order.status != 'DISPATCHED') %}
+                        <tr class="{% if deadline_triggered %}row-triggered{% endif %}">
+                            <td>
+                                <strong>Deadline Threat</strong>
+                                <span class="rule-description">Delivery window is scheduled within 6 hours from current time</span>
+                            </td>
+                            <td class="text-center weight-cell {% if deadline_triggered %}weight-triggered{% endif %}">
+                                {% if deadline_triggered %}+20{% else %}0{% endif %}
+                            </td>
+                            <td>
+                                {% if deadline_triggered %}
+                                    <span class="pill-active"><i class="bx bx-check-double"></i> Triggered ({{ order.hours_remaining }}h left)</span>
+                                {% else %}
+                                    <span class="pill-inactive">On Track (>6h remaining)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Inventory risk weight -->
+                        <tr class="{% if order.has_inventory_risk %}row-triggered{% endif %}">
+                            <td>
+                                <strong>Inventory Risk</strong>
+                                <span class="rule-description">Stock checks indicate active shortages or item reservation conflicts</span>
+                            </td>
+                            <td class="text-center weight-cell {% if order.has_inventory_risk %}weight-triggered{% endif %}">
+                                {% if order.has_inventory_risk %}+15{% else %}0{% endif %}
+                            </td>
+                            <td>
+                                {% if order.has_inventory_risk %}
+                                    <span class="pill-danger"><i class="bx bx-error-circle"></i> Shortage Risk</span>
+                                {% else %}
+                                    <span class="pill-inactive">Sufficient Stock</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Waiting time weight -->
+                        {% set delay_triggered = (order.waiting_hours >= 4 and order.status != 'DISPATCHED') %}
+                        <tr class="{% if delay_triggered %}row-triggered{% endif %}">
+                            <td>
+                                <strong>Queue Aging</strong>
+                                <span class="rule-description">Order has spent more than 4 hours waiting in picking queue</span>
+                            </td>
+                            <td class="text-center weight-cell {% if delay_triggered %}weight-triggered{% endif %}">
+                                {% if delay_triggered %}+10{% else %}0{% endif %}
+                            </td>
+                            <td>
+                                {% if delay_triggered %}
+                                    <span class="pill-active"><i class="bx bx-check-double"></i> Triggered ({{ order.waiting_hours }}h waiting)</span>
+                                {% else %}
+                                    <span class="pill-inactive">Recent Queue ({{ order.waiting_hours }}h)</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total Priority Score</td>
+                            <td class="text-center font-bold">{{ order.score }}</td>
+                            <td>
+                                <span class="badge-priority badge-priority-{{ order.priority_level|lower }}">
+                                    {{ order.priority_level }} Level
+                                </span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+        <!-- Column 2: Recommendation & Operations Panel -->
+        <div class="operations-sidebar">
+            <!-- Recommendation Panel -->
+            <section class="dashboard-panel panel-recommendation">
+                <div class="panel-header">
+                    <h3><i class="bx bx-bulb"></i> Operational Action</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="recommendation-badge-card">
+                        <div class="rec-icon">
+                            <i class="bx bxs-shield-error"></i>
+                        </div>
+                        <div class="rec-content">
+                            <p class="rec-title">Fulfillment Recommendation</p>
+                            <p class="rec-msg">
+                                "{{ recommendation }}"
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="detailed-risk-status">
+                        <h5>Risk Status Registry</h5>
+                        <div class="risk-pill-row">
+                            {% if order.risks %}
+                                {% for r in order.risks %}
+                                    <span class="risk-badge-card badge-risk-{{ order.risk_badge|lower|replace(' ', '-') }}">
+                                        <i class="bx bx-shield-x"></i> {{ r.replace('_', ' ') }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="risk-badge-card on-track">
+                                    <i class="bx bx-shield-quarter"></i> NO RISK DETECTED
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Actions Panel & Smart Allocation Section -->
+            <section class="dashboard-panel">
+                <div class="panel-header">
+                    <h3><i class="bx bxs-component"></i> Smart Allocation</h3>
+                </div>
+                <div class="panel-body execution-body">
+                    {% if allocation %}
+                        <!-- Completed Allocation Details -->
+                        <div class="allocation-summary-card">
+                            <div class="action-status-banner text-success" style="margin-bottom: 12px;">
+                                <i class="bx bx-check-circle"></i>
+                                <strong>ALLOCATION COMPLETED</strong>
+                            </div>
+                            
+                            <div class="allocation-metrics-list">
+                                <div class="alloc-metric-item">
+                                    <span>Requested Qty</span>
+                                    <strong>{{ allocation.requested_quantity }} units</strong>
+                                </div>
+                                <div class="alloc-metric-item">
+                                    <span>Allocated Qty</span>
+                                    <strong class="text-success">{{ allocation.allocated_quantity }} units</strong>
+                                </div>
+                                <div class="alloc-metric-item">
+                                    <span>Pending Qty</span>
+                                    <strong class="{% if allocation.pending_quantity > 0 %}text-warning{% endif %}">{{ allocation.pending_quantity }} units</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="alloc-decision-box">
+                                <p class="recommendation-text" style="font-size: 12px;">
+                                    "{{ allocation.decision_reason }}"
+                                </p>
+                            </div>
+                            
+                            {% if exception %}
+                                <div class="shortage-exception-card">
+                                    <p class="exception-title"><i class="bx bx-error"></i> STOCK SHORTAGE EXCEPTION</p>
+                                    <p class="exception-desc">
+                                        {{ exception.resolution }} ({{ exception.status }} ticket)
+                                    </p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <!-- Allocation Recommendation Panel (Before execution) -->
+                        {% if product %}
+                            {% set current_preview = none %}
+                            {% if allocation_preview %}
+                                {% for alloc in allocation_preview.allocations %}
+                                    {% if alloc.order_number == order.order_number %}
+                                        {% set current_preview = alloc %}
+                                    {% endif %}
+                                    
+                                {% endfor %}
+                            {% endif %}
+                            
+                            <div class="allocation-summary-card">
+                                <div class="allocation-metrics-list">
+                                    <div class="alloc-metric-item">
+                                        <span>Requested Qty</span>
+                                        <strong>{{ order.requested_qty }}</strong>
+                                    </div>
+                                    <div class="alloc-metric-item">
+                                        <span>Available Stock</span>
+                                        <strong class="{% if product.available_quantity == 0 %}text-danger{% endif %}">{{ product.available_quantity }}</strong>
+                                    </div>
+                                    {% if current_preview %}
+                                        <div class="alloc-metric-item">
+                                            <span>Recommended</span>
+                                            <strong class="text-success">{{ current_preview.allocated }}</strong>
+                                        </div>
+                                        <div class="alloc-metric-item">
+                                            <span>Pending Shortage</span>
+                                            <strong class="{% if current_preview.pending > 0 %}text-warning{% endif %}">{{ current_preview.pending }}</strong>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if product.available_quantity == 0 %}
+                                    <div class="alert-status-danger" style="margin-top: 14px; margin-bottom: 8px;">
+                                        <i class="bx bx-x-circle"></i> OUT OF STOCK
+                                    </div>
+                                    <button class="btn btn-secondary btn-full-width" disabled>
+                                        <i class="bx bx-block"></i> Review Decision (OOS)
+                                    </button>
+                                {% else %}
+                                    <div class="alloc-decision-box" style="margin-top: 14px; margin-bottom: 14px;">
+                                        <p class="recommendation-text" style="font-size: 12px;">
+                                            Decision: <strong>Allocate available stock</strong>
+                                        </p>
+                                    </div>
+                                    <button class="btn btn-primary btn-full-width" onclick="openDecisionModal()">
+                                        <i class="bx bx-zoom-in"></i> Review Decision
+                                    </button>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <p class="no-data">No associated product item to allocate.</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Comparison Decision Modal -->
+{% if not allocation and allocation_preview and product %}
+<div class="modal-overlay" id="decision-modal" style="display: none;">
+    <div class="modal-card" style="max-width: 600px;">
+        <div class="modal-card-icon" style="background-color: var(--primary-light); color: var(--primary);">
+            <i class="bx bxs-component"></i>
+        </div>
+        <h3>SMART ALLOCATION DECISION</h3>
+        <p class="modal-card-desc">
+            The Smart Allocation Engine detected a stock conflict for SKU <strong>{{ product.sku }}</strong>. Available: <strong>{{ product.available_quantity }} units</strong>.
+        </p>
+        
+        <div class="priority-comparison-section" style="width: 100%; text-align: left; margin: 12px 0;">
+            <h5 style="font-size: 11px; color: var(--text-muted); font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">Why This Decision? (Priority Comparison)</h5>
+            
+            <table class="scoring-breakdown-table" style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th>Order Number</th>
+                        <th>Priority Level</th>
+                        <th class="text-center">Score</th>
+                        <th class="text-right">Requested</th>
+                        <th class="text-right">Allocation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alloc in allocation_preview.allocations %}
+                        <tr class="{% if alloc.order_number == order.order_number %}row-triggered{% endif %}">
+                            <td>
+                                <strong>{{ alloc.order_number }}</strong>
+                                {% if alloc.order_number == order.order_number %}<span class="badge-status badge-status-new" style="font-size: 9px; padding: 2px 6px;">Target</span>{% endif %}
+                            </td>
+                            <td>
+                                <span class="badge-priority badge-priority-{{ alloc.priority_level|lower }}" style="padding: 2px 6px; font-size: 9px;">{{ alloc.priority_level }}</span>
+                            </td>
+                            <td class="text-center font-mono font-bold">{{ alloc.score }}</td>
+                            <td class="text-right font-mono">{{ alloc.required }}</td>
+                            <td class="text-right font-mono font-bold text-success">{{ alloc.allocated }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="action-recommendation warning-bg" style="width: 100%; text-align: left; background-color: var(--primary-light); border-color: var(--border-color); padding: 12px 16px;">
+            <h5 style="font-size: 9px; font-weight: 700; color: var(--primary); letter-spacing: 0.5px; margin-bottom: 4px;">SYSTEM RECOMMENDATION</h5>
+            <p class="recommendation-text" style="color: #1e3a8a; font-size: 12px; line-height: 1.4;">
+                "Allocate available inventory to the highest-priority order."
+            </p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; width: 100%; margin-top: 12px;">
+            <button class="btn btn-secondary" onclick="closeDecisionModal()" style="flex: 1; justify-content: center;">Cancel</button>
+            <button class="btn btn-primary" onclick="executeAllocation('{{ order.order_number }}', '{{ product.sku }}')" style="flex: 2; justify-content: center;">Accept Recommendation</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Packing & QC{% endblock %}
+{% block header_subtitle %}Packing flow, quality assurance, and release readiness{% endblock %}
+
+{% block content %}
+<!-- Packing KPIs -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-icon icon-orange"><i class="bx bx-time-five"></i></div>
+        <div class="kpi-info">
+            <h3>Waiting</h3>
+            <p class="kpi-value">{{ kpi.waiting }}</p>
+            <span class="kpi-trend text-muted">In queue</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-blue"><i class="bx bx-box"></i></div>
+        <div class="kpi-info">
+            <h3>Packing</h3>
+            <p class="kpi-value">{{ kpi.packing }}</p>
+            <span class="kpi-trend text-primary">Active</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-purple"><i class="bx bx-check-shield"></i></div>
+        <div class="kpi-info">
+            <h3>QC Pending</h3>
+            <p class="kpi-value">{{ kpi.qc_pending }}</p>
+            <span class="kpi-trend text-warning">Awaiting check</span>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon icon-green"><i class="bx bx-check-double"></i></div>
+        <div class="kpi-info">
+            <h3>QC Passed</h3>
+            <p class="kpi-value">{{ kpi.passed }}</p>
+            <span class="kpi-trend text-success">Ready to ship</span>
+        </div>
+    </div>
+</div>
+
+<!-- Packing Table -->
+<section class="dashboard-panel" style="margin-top:24px;">
+    <div class="panel-header">
+        <h3><i class="bx bx-box"></i> Packing & QC Records</h3>
+    </div>
+    <div class="panel-body">
+        <div class="responsive-table-wrap">
+        <table class="data-table" id="packing-table">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Packing Status</th>
+                    <th>QC Status</th>
+                    <th>Packed By</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in packing_records %}
+                <tr>
+                    <td><a href="/orders/{{ p.order_number }}" class="link"><strong>{{ p.order_number }}</strong></a></td>
+                    <td>{{ p.customer_name or '—' }}</td>
+                    <td class="col-category">{{ p.items_summary or '—' }}</td>
+                    <td><span class="badge-status badge-status-{{ p.packing_status|lower }}">{{ p.packing_status }}</span></td>
+                    <td>
+                        {% if p.qc_status == 'PASSED' %}
+                            <span class="badge-status badge-status-dispatched">PASSED</span>
+                        {% elif p.qc_status == 'FAILED' %}
+                            <span class="badge-status badge-status-on_hold">FAILED</span>
+                        {% else %}
+                            <span class="badge-status badge-status-new">{{ p.qc_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.packed_by or '—' }}</td>
+                    <td>
+                        {% if p.packing_status == 'WAITING' %}
+                            <button class="btn btn-sm btn-primary" onclick="startPacking('{{ p.order_number }}')">
+                                <i class="bx bx-play"></i> Start Packing
+                            </button>
+                        {% elif p.packing_status == 'PACKING' %}
+                            <button class="btn btn-sm btn-primary" onclick="completePacking('{{ p.order_number }}')">
+                                <i class="bx bx-check"></i> Complete
+                            </button>
+                        {% elif p.packing_status == 'COMPLETED' and p.qc_status == 'PENDING' %}
+                            <div class="btn-group-vertical">
+                                <button class="btn btn-sm btn-primary" onclick="qcPass('{{ p.order_number }}')">
+                                    <i class="bx bx-check-shield"></i> Pass QC
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="qcFail('{{ p.order_number }}')">
+                                    <i class="bx bx-x-circle"></i> Fail QC
+                                </button>
+                            </div>
+                        {% elif p.qc_status == 'PASSED' %}
+                            <span class="text-success"><i class="bx bx-check-double"></i> Complete</span>
+                        {% elif p.qc_status == 'FAILED' %}
+                            <span class="text-danger"><i class="bx bx-x-circle"></i> Failed</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</section>
+
+<!-- QC Fail Modal -->
+<div class="modal-overlay" id="qc-fail-modal" style="display:none;">
+    <div class="modal-card" style="max-width:440px; text-align:left;">
+        <h3><i class="bx bx-x-circle text-danger"></i> QC Failure</h3>
+        <p class="modal-card-desc">Describe the reason for QC failure.</p>
+        <div class="form-group" style="width:100%; margin-top:12px;">
+            <label>Failure Reason</label>
+            <select id="qc-fail-reason-select">
+                <option value="Damaged item detected during QC inspection.">Damaged Item</option>
+                <option value="Item count mismatch — incorrect quantity packed.">Item Count Mismatch</option>
+                <option value="Wrong product packed — SKU mismatch.">Product Mismatch</option>
+                <option value="Packaging integrity compromised.">Packaging Damage</option>
+            </select>
+        </div>
+        <input type="hidden" id="qc-fail-order">
+        <div style="display:flex; gap:12px; width:100%; margin-top:12px;">
+            <button class="btn btn-secondary" onclick="closeQcFailModal()" style="flex:1;">Cancel</button>
+            <button class="btn btn-danger" onclick="submitQcFail()" style="flex:2;">Confirm QC Failure</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

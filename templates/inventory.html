@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Inventory{% endblock %}
+{% block header_subtitle %}Stock health, replenishment, and zone visibility{% endblock %}
+
+{% block content %}
+<div class="inventory-container">
+    <!-- KPI Cards Grid -->
+    <div class="kpi-grid">
+        <!-- Total SKUs -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-blue">
+                <i class="bx bx-barcode"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Total SKUs</h3>
+                <p class="kpi-value">{{ kpi.Total_SKUs }}</p>
+                <span class="kpi-trend text-muted">Active registry</span>
+            </div>
+        </div>
+
+        <!-- Healthy SKUs -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-green">
+                <i class="bx bx-check-shield"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Healthy Stock</h3>
+                <p class="kpi-value">{{ kpi.Healthy }}</p>
+                <span class="kpi-trend text-success">Optimum levels</span>
+            </div>
+        </div>
+
+        <!-- Low Stock -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-orange">
+                <i class="bx bx-trending-down"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Low Stock</h3>
+                <p class="kpi-value">{{ kpi.Low_Stock }}</p>
+                <span class="kpi-trend {% if kpi.Low_Stock > 0 %}text-warning{% else %}text-muted{% endif %}">
+                    Reorder warning
+                </span>
+            </div>
+        </div>
+
+        <!-- Critical Stock -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-red">
+                <i class="bx bx-error-alt"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Critical</h3>
+                <p class="kpi-value">{{ kpi.Critical }}</p>
+                <span class="kpi-trend {% if kpi.Critical > 0 %}text-danger font-bold{% else %}text-muted{% endif %}">
+                    Urgent replenishment
+                </span>
+            </div>
+        </div>
+
+        <!-- Out of Stock -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-purple">
+                <i class="bx bx-block"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Out of Stock</h3>
+                <p class="kpi-value">{{ kpi.Out_of_Stock }}</p>
+                <span class="kpi-trend {% if kpi.Out_of_Stock > 0 %}text-danger font-bold{% else %}text-muted{% endif %}">
+                    Nil availability
+                </span>
+            </div>
+        </div>
+
+        <!-- Damaged units count -->
+        <div class="kpi-card">
+            <div class="kpi-icon icon-teal">
+                <i class="bx bx-recycle"></i>
+            </div>
+            <div class="kpi-info">
+                <h3>Damaged Units</h3>
+                <p class="kpi-value">{{ kpi.Damaged }}</p>
+                <span class="kpi-trend text-muted">Isolated stock</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Operations Bar -->
+    <div class="operations-bar" style="margin-top: 24px;">
+        <div class="search-box-container">
+            <i class="bx bx-search search-icon"></i>
+            <input type="text" id="inventory-search" placeholder="Search by SKU, Product Name, Category or Zone..." onkeyup="filterInventoryTable()">
+        </div>
+        
+        <div class="filters-container">
+            <div class="filter-group">
+                <label for="filter-inv-status">Status</label>
+                <select id="filter-inv-status" onchange="filterInventoryTable()">
+                    <option value="ALL">All Statuses</option>
+                    <option value="HEALTHY">Healthy</option>
+                    <option value="LOW STOCK">Low Stock</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="OUT OF STOCK">Out of Stock</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Registry Table Panel -->
+    <div class="dashboard-panel" style="margin-top: 24px;">
+        <div class="panel-header">
+            <h3><i class="bx bx-package"></i> Warehouse Inventory Registry</h3>
+            <span class="results-count" id="inventory-results-count">{{ inventory|length }} items loaded</span>
+        </div>
+        <div class="panel-body no-padding table-responsive">
+            <table class="orders-table" id="inventory-table">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Product Description</th>
+                        <th>Category</th>
+                        <th class="text-center">Zone</th>
+                        <th class="text-right">Available</th>
+                        <th class="text-right">Reserved</th>
+                        <th class="text-right">Damaged</th>
+                        <th class="text-right">Reorder Level</th>
+                        <th class="text-center">Status</th>
+                        <th>Recommended Action</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-tbody">
+                    {% for item in inventory %}
+                    <tr class="inventory-row" 
+                        data-sku="{{ item.sku }}"
+                        data-name="{{ item.name }}"
+                        data-category="{{ item.category }}"
+                        data-zone="{{ item.bin_location }}"
+                        data-status="{{ item.status }}">
+                        
+                        <td class="col-order-id">
+                            <a href="/inventory/{{ item.id }}" class="order-link-title">
+                                <strong>{{ item.sku }}</strong>
+                            </a>
+                        </td>
+                        
+                        <td class="col-customer">
+                            {{ item.name }}
+                        </td>
+                        
+                        <td class="col-category text-small">
+                            {{ item.category }}
+                        </td>
+                        
+                        <td class="col-zone text-center font-bold">
+                            {{ item.bin_location }}
+                        </td>
+                        
+                        <td class="col-available text-right font-mono font-bold {% if item.available_quantity == 0 %}text-danger{% endif %}">
+                            {{ item.available_quantity }}
+                        </td>
+                        
+                        <td class="col-reserved text-right font-mono">
+                            {{ item.reserved_quantity }}
+                        </td>
+                        
+                        <td class="col-damaged text-right font-mono text-muted">
+                            {{ item.damaged_quantity }}
+                        </td>
+                        
+                        <td class="col-reorder text-right font-mono text-secondary">
+                            {{ item.reorder_level }}
+                        </td>
+                        
+                        <td class="col-status text-center">
+                            <span class="badge {{ item.status_badge }}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        
+                        <td class="col-action">
+                            {% if 'Reorder' in item.recommended_action %}
+                                <span class="badge-priority badge-priority-high">
+                                    <i class="bx bx-revision" style="margin-right: 4px;"></i> {{ item.recommended_action }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted text-small">{{ item.recommended_action }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="no-inventory-rows" style="display: none;">
+                        <td colspan="10" class="table-no-data">
+                            <i class="bx bx-search-alt text-muted large-icon"></i>
+                            <p>No inventory items match the search filters.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

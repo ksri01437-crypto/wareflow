@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="order-detail-container">
+    <!-- Back Navigation -->
+    <div class="back-navigation">
+        <a href="/inventory" class="btn-back">
+            <i class="bx bx-left-arrow-alt"></i> Back to Inventory Registry
+        </a>
+    </div>
+
+    <!-- Product Header Panel -->
+    <div class="detail-header-panel {% if item.status == 'CRITICAL' or item.status == 'OUT OF STOCK' %}border-critical{% endif %}">
+        <div class="header-main-info">
+            <div class="order-number-title">
+                <span class="badge {{ item.status_badge }}">{{ item.status }}</span>
+                <h2>{{ item.name }}</h2>
+                <p class="customer-subtitle">
+                    SKU: <strong>{{ item.sku }}</strong> | Category: {{ item.category }}
+                </p>
+            </div>
+            
+            <div class="header-stats-group">
+                <div class="header-stat-item">
+                    <span class="stat-label">Available</span>
+                    <span class="stat-value font-mono {% if item.available_quantity == 0 %}text-danger{% endif %}">
+                        {{ item.available_quantity }}
+                    </span>
+                </div>
+                <div class="header-stat-item">
+                    <span class="stat-label">Reserved</span>
+                    <span class="stat-value font-mono text-secondary">{{ item.reserved_quantity }}</span>
+                </div>
+                <div class="header-stat-item">
+                    <span class="stat-label">Damaged</span>
+                    <span class="stat-value font-mono text-muted">{{ item.damaged_quantity }}</span>
+                </div>
+                <div class="header-stat-item">
+                    <span class="stat-label">Total On-Hand</span>
+                    <span class="stat-value font-mono">{{ item.total_quantity }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-meta-grid">
+            <div class="meta-item">
+                <i class="bx bx-map-pin"></i>
+                <div>
+                    <span class="meta-label">Warehouse Zone</span>
+                    <span class="meta-value">{{ item.bin_location }}</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-git-commit"></i>
+                <div>
+                    <span class="meta-label">Reorder Level</span>
+                    <span class="meta-value">{{ item.reorder_level }} units</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-trending-up"></i>
+                <div>
+                    <span class="meta-label">Daily Demand Rate</span>
+                    <span class="meta-value">{{ item.daily_demand }} units / day</span>
+                </div>
+            </div>
+            <div class="meta-item">
+                <i class="bx bx-time-five"></i>
+                <div>
+                    <span class="meta-label">Replenishment Lead Time</span>
+                    <span class="meta-value">{{ item.lead_time_days }} days</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div class="dashboard-row grid-2-1">
+        <!-- Stock Health and Audit Parameters -->
+        <section class="dashboard-panel">
+            <div class="panel-header">
+                <h3><i class="bx bx-heart-rate"></i> Stock Health Analysis</h3>
+            </div>
+            <div class="panel-body">
+                <div class="health-metrics">
+                    <div class="health-item" style="gap: 12px;">
+                        <div class="health-meta">
+                            <span>Inventory Level Status</span>
+                            <span class="badge {{ item.status_badge }}">{{ item.status }}</span>
+                        </div>
+                        
+                        <!-- Progress bar to reorder level -->
+                        {% set pct_reorder = (item.available_quantity / item.reorder_level * 100) if item.reorder_level > 0 else 100 %}
+                        {% if pct_reorder > 100 %}{% set pct_reorder = 100 %}{% endif %}
+                        <div class="progress-bar-container" style="height: 12px; border-radius: 6px;">
+                            <div class="progress-bar {% if item.status == 'CRITICAL' or item.status == 'OUT OF STOCK' %}bg-red{% elif item.status == 'LOW STOCK' %}bg-orange{% else %}bg-green{% endif %}" style="width: {{ pct_reorder }}%; border-radius: 6px;"></div>
+                        </div>
+                        <span class="health-subtitle">
+                            Current available: <strong>{{ item.available_quantity }}</strong> units | Reorder limit: <strong>{{ item.reorder_level }}</strong> units
+                        </span>
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 32px; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px;">
+                    Replenishment Constants
+                </h4>
+                
+                <table class="scoring-breakdown-table">
+                    <thead>
+                        <tr>
+                            <th>Parameter Name</th>
+                            <th class="text-right">Value</th>
+                            <th>Operational Intent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Safety Stock Limit</strong></td>
+                            <td class="text-right font-mono font-bold">{{ item.safety_stock }} units</td>
+                            <td class="text-small">Minimum buffer stock stored to protect against supply disruptions.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Expected Lead Time Demand</strong></td>
+                            <td class="text-right font-mono font-bold">{{ item.daily_demand * item.lead_time_days }} units</td>
+                            <td class="text-small">Forecasted units consumed during reorder period ({{ item.daily_demand }} daily demand × {{ item.lead_time_days }} days lead time).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Calculated Reorder Trigger Point</strong></td>
+                            <td class="text-right font-mono font-bold">{{ item.reorder_level }} units</td>
+                            <td class="text-small">Stock level that triggers a replenishment recommendation.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Reorder recommendations -->
+        <div class="operations-sidebar">
+            <section class="dashboard-panel {% if reorder_recommended %}panel-recommendation{% endif %}">
+                <div class="panel-header">
+                    <h3><i class="bx bx-revision"></i> Replenishment Advisory</h3>
+                </div>
+                <div class="panel-body">
+                    {% if reorder_recommended and reorder_quantity > 0 %}
+                        <div class="recommendation-badge-card">
+                            <div class="rec-icon text-danger">
+                                <i class="bx bxs-error-circle"></i>
+                            </div>
+                            <div class="rec-content">
+                                <p class="rec-title text-danger" style="color: #991b1b;">REORDER RECOMMENDED</p>
+                                <p class="rec-msg" style="color: #991b1b; font-weight: 500;">
+                                    SKU <strong>{{ item.sku }}</strong> stock levels are low. A purchase order is advised.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="detailed-risk-status" style="border-top-color: #fca5a5;">
+                            <h5 style="color: #991b1b;">Recommended Procurement</h5>
+                            <div class="reorder-calculation-card">
+                                <p class="reorder-quantity-value">{{ reorder_quantity }} <span>units</span></p>
+                                <p class="reorder-formula-text">
+                                    Formula: (Demand × Lead Time) + Safety Stock - Available<br>
+                                    ({{ item.daily_demand }} × {{ item.lead_time_days }}) + {{ item.safety_stock }} - {{ item.available_quantity }} = {{ reorder_quantity }}
+                                </p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="recommendation-badge-card" style="background: transparent; padding: 0; border: none;">
+                            <div class="rec-icon" style="color: var(--success);">
+                                <i class="bx bx-check-circle"></i>
+                            </div>
+                            <div class="rec-content">
+                                <p class="rec-title" style="color: #065f46;">STOCK IS OPTIMUM</p>
+                                <p class="rec-msg" style="color: #065f46;">
+                                    Available quantities are sufficient to meet demand. No procurement replenishment required.
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
